@@ -37,15 +37,18 @@ fi
 build_z3_mac() {
   local output_dir="${1:-./z3-build}"
   local build_type="${2:-Release}"
-  local architecture="${3:-$(uname -m)}"
+  local raw_arch="${3:-$(uname -m)}"
 
   # Validate build type
   if [[ ! "$build_type" =~ ^(Release|Debug|RelWithDebInfo|MinSizeRel)$ ]]; then
     error "Invalid build type: $build_type. Must be Release, Debug, RelWithDebInfo, or MinSizeRel"
   fi
 
-  # Normalize architecture
-  case "${architecture,,}" in
+  # Normalize architecture using POSIX tr (compatible with macOS Bash 3.2)
+  local arch_lower
+  arch_lower=$(echo "$raw_arch" | tr '[:upper:]' '[:lower:]')
+
+  case "${arch_lower}" in
     x64|amd64|x86_64)
       architecture="x64"
       local cmake_arch="x86_64"
@@ -55,7 +58,7 @@ build_z3_mac() {
       local cmake_arch="arm64"
       ;;
     *)
-      error "Invalid architecture: $architecture. Must be x64 or arm64"
+      error "Invalid architecture: $raw_arch. Must be x64 or arm64"
       ;;
   esac
 
@@ -65,8 +68,8 @@ build_z3_mac() {
   info "Architecture: $architecture (cmake: $cmake_arch)"
 
   # Check required tools
-  command_exists git    || error "git is not installed"
-  command_exists cmake  || error "cmake is not installed (run: brew install cmake)"
+  command_exists git     || error "git is not installed"
+  command_exists cmake   || error "cmake is not installed (run: brew install cmake)"
   command_exists python3 || error "python3 is not installed"
 
   local temp_dir
@@ -132,7 +135,7 @@ build_z3_mac() {
   mkdir -p "$output_dir"
   cp -r "$install_dir/." "$output_dir/"
 
-  # Write VERSION file (mirrors Docker script)
+  # Write VERSION file
   echo "$Z3_VERSION" > "$output_dir/VERSION"
 
   # Verify the dylib is Mach-O

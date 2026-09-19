@@ -44,10 +44,13 @@ fi
 
 build_espresso_mac() {
   local output_dir="${1:-./espresso-build}"
-  local architecture="${2:-$(uname -m)}"
+  local raw_arch="${2:-$(uname -m)}"
 
-  # Normalize architecture
-  case "${architecture,,}" in
+  # Normalize architecture using POSIX tr (compatible with Bash 3.2+)
+  local arch_lower
+  arch_lower=$(echo "$raw_arch" | tr '[:upper:]' '[:lower:]')
+
+  case "${arch_lower}" in
     x64|amd64|x86_64)
       architecture="x64"
       local arch_flag="-arch x86_64"
@@ -57,7 +60,7 @@ build_espresso_mac() {
       local arch_flag="-arch arm64"
       ;;
     *)
-      error "Invalid architecture: $architecture. Must be x64 or arm64"
+      error "Invalid architecture: $raw_arch. Must be x64 or arm64"
       ;;
   esac
 
@@ -83,15 +86,17 @@ build_espresso_mac() {
   cd "$temp_dir/espresso"
   git checkout "${ESPRESSO_COMMIT}"
 
-  # Configure and build natively for target arch
+  # Configure and build natively for target arch with legacy C tolerance
   info "Configuring..."
-  ./configure CC="clang" CFLAGS="${arch_flag}" LDFLAGS="${arch_flag}"
+  local legacy_cflags="${arch_flag} -Wno-implicit-int -Wno-implicit-function-declaration -Wno-return-mismatch -Wno-incompatible-function-pointer-types -Wno-deprecated-non-prototype -std=gnu89"
+
+  ./configure CC="clang" CFLAGS="${legacy_cflags}" LDFLAGS="${arch_flag}"
 
   info "Building..."
   make -j"$(sysctl -n hw.logicalcpu)"
 
   # Strip and copy binary
-  strip /usr/local/bin/espresso 2>/dev/null || strip "$temp_dir/espresso/src/espresso" 2>/dev/null || true
+  strip "$temp_dir/espresso/src/espresso" 2>/dev/null || true
 
   mkdir -p "$output_dir"
 
