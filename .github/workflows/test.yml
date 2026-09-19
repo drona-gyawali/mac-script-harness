@@ -1,0 +1,36 @@
+name: Test macOS Build Scripts
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  test-mac-scripts:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build tools via Homebrew
+        run: |
+          brew install autoconf automake cmake
+
+      - name: Run build_eqntott_mac.sh
+        run: |
+          chmod +x tools/scripts/build_eqntott_mac.sh
+          ./tools/scripts/build_eqntott_mac.sh ./out-eqntott
+
+      - name: Run build_espresso_mac.sh
+        run: |
+          chmod +x tools/scripts/build_espresso_mac.sh
+          ./tools/scripts/build_espresso_mac.sh ./out-espresso
+
+      - name: Run build_must_mac.sh
+        run: |
+          chmod +x tools/scripts/build_must_mac.sh
+          ./tools/scripts/build_must_mac.sh ./out-must
+
+      - name: Run build_z3_mac.sh
+        run: |
+          chmod +x tools/scripts/build_z3_mac.sh
+          ./tools/scripts/build_z3_mac.sh ./out-z3
