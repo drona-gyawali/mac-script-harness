@@ -24,7 +24,7 @@ jobs:
         run: |
           chmod +x tools/scripts/build_espresso_mac.sh
           ./tools/scripts/build_espresso_mac.sh ./out-espresso
-
+      
       - name: Run build_must_mac.sh
         run: |
           chmod +x tools/scripts/build_must_mac.sh

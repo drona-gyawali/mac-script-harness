@@ -44,10 +44,13 @@ fi
 
 build_must_mac() {
   local output_dir="${1:-./must-build}"
-  local architecture="${2:-$(uname -m)}"
+  local raw_arch="${2:-$(uname -m)}"
 
-  # Normalize architecture
-  case "${architecture,,}" in
+  # Normalize architecture using POSIX tr (compatible with macOS Bash 3.2)
+  local arch_lower
+  arch_lower=$(echo "$raw_arch" | tr '[:upper:]' '[:lower:]')
+
+  case "${arch_lower}" in
     x64|amd64|x86_64)
       architecture="x64"
       local arch_flag="-arch x86_64"
@@ -57,7 +60,7 @@ build_must_mac() {
       local arch_flag="-arch arm64"
       ;;
     *)
-      error "Invalid architecture: $architecture. Must be x64 or arm64"
+      error "Invalid architecture: $raw_arch. Must be x64 or arm64"
       ;;
   esac
 
@@ -81,10 +84,24 @@ build_must_mac() {
   cd "$temp_dir/must"
   git checkout "${MUST_COMMIT}"
 
-  # Apply the missing #include <cstdio> patch (same as Docker build)
   info "Applying patch..."
+
+  # signal.h needs <cstdio>
   sed -i '' -e 's/#include <signal.h>/#include <signal.h>\n#include <cstdio>/' \
     mcsmus/mcsmus/control.cc
+
+  # Replace PRI macros with literals (macOS does not like the PRI* macros in some contexts)
+  find . -type f \( -name "*.h" -o -name "*.cc" -o -name "*.cpp" -o -name "*.hh" \) \
+    -exec sed -i '' 's/PRIi64/"lld"/g; s/PRIu64/"llu"/g' {} +
+
+  # Fix memUsedPeak signature mismatch (header has bool, .cc was missing it)
+  sed -i '' \
+    -e 's/double Minisat::memUsedPeak() { return memUsed(); }/double Minisat::memUsedPeak(bool) { return memUsed(); }/' \
+    -e 's/double Minisat::memUsedPeak() { return 0; }/double Minisat::memUsedPeak(bool) { return 0; }/' \
+    mcsmus/minisat/utils/System.cc
+
+  # Remove obsolete -lstdc++fs (not needed on Apple Clang / libc++)
+  grep -rl 'stdc++fs' . 2>/dev/null | xargs sed -i '' 's/-lstdc++fs//g' || true
 
   # Build natively for target arch
   info "Building..."
